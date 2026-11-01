@@ -1,4 +1,8 @@
-import { GetPublicAccessBlockCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  GetPublicAccessBlockCommand,
+  HeadObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { Resource } from "sst";
 import { describe, expect, test } from "vitest";
 
@@ -24,5 +28,18 @@ describe("1. S3 + CloudFront (静的サイト)", () => {
       BlockPublicPolicy: true,
       RestrictPublicBuckets: true,
     });
+  });
+
+  test("S3 のオブジェクト URL に直接 GET したとき 403 が返ること", async () => {
+    const s3 = new S3Client({});
+    const bucket = Resource.WebAssets.name;
+    // オブジェクトが存在することを確かめ、「無いから 403」と区別する
+    await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: "index.html" }));
+
+    const res = await fetch(
+      `https://${bucket}.s3.ap-northeast-1.amazonaws.com/index.html`,
+    );
+
+    expect(res.status).toBe(403);
   });
 });
