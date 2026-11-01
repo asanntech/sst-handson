@@ -14,5 +14,7 @@ export default $config({
       },
     };
   },
-  async run() {},
+  async run() {
+    await import("./infra/cdn");
+  },
 });
