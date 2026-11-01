@@ -1,4 +1,4 @@
-# SST v3 インフラ構築ハンズオン 計画
+# SST v4 インフラ構築ハンズオン 計画
 
 ## 1. 目的と前提
 
@@ -6,7 +6,7 @@
 | --- | --- |
 | 対象者 | 自分ひとりの学習用 |
 | 主題 | **インフラ構築**。アプリケーションは各サービスをつなぐための最小限の実装にとどめる |
-| IaC | SST v3 (Ion / Pulumi ベース)。高レベルコンポーネントで書けないものは `aws.*` (Pulumi) で直接書く |
+| IaC | SST v4 (Pulumi ベース、内部の Pulumi AWS provider は v7)。高レベルコンポーネントで書けないものは `aws.*` (Pulumi) で直接書く |
 | 進め方 | `/tdd` を使い、**インフラに対して** Red → Green を回す |
 | 題材アプリ | 投稿アプリ（テキストと画像の投稿、サムネイル生成） |
 | 言語 | TypeScript (pnpm モノレポ)。API は Hono |
@@ -189,6 +189,7 @@ docs/
 
 ## 8. 実装時に調べること
 
+- `transform` や `aws.*` を直接書くときは、Pulumi AWS v7 での変更点を確認する (SST v4 で provider が v6 から v7 に上がったため。[Migrate From v3](https://sst.dev/docs/migrate-from-v3/))
 - `sst.aws.Service` の ALB Listener と SG を `transform` でどこまで差し替えられるか (デフォルトアクションを 403 にする、プレフィックスリストに限定する)
 - `sst.aws.Router` に StaticSite、Bucket、Service の URL をぶら下げる書き方と、`webAclId` の設定箇所
 - `sst.aws.Postgres` を remove したときに最終スナップショットが残らないか
