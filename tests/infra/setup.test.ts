@@ -17,4 +17,14 @@ describe("0. 準備: AWS 接続先", () => {
 
     expect(region).toBe("ap-northeast-1");
   });
+
+  test("IAM Identity Center (SSO) の AdministratorAccess ロールの一時的な認証情報であること", async () => {
+    const sts = new STSClient({});
+
+    const identity = await sts.send(new GetCallerIdentityCommand({}));
+
+    expect(identity.Arn).toMatch(
+      /^arn:aws:sts::\d{12}:assumed-role\/AWSReservedSSO_AdministratorAccess_[0-9a-f]+\/.+$/,
+    );
+  });
 });
