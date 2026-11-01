@@ -14,6 +14,10 @@ declare module "sst" {
       "type": "sst.aws.StaticSite"
       "url": string
     }
+    "WebAssets": {
+      "name": string
+      "type": "sst.sst.Linkable"
+    }
   }
 }
 
