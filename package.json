@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@10.34.5",
   "engines": {
-    "node": ">=20.12"
+    "node": "^24.0.0 || >=26.0.0"
   },
   "scripts": {
     "test:infra": "sst shell --stage dev -- vitest run",
