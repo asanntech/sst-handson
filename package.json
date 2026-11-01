@@ -8,7 +8,8 @@
     "node": ">=20.12"
   },
   "scripts": {
-    "test:infra": "sst shell --stage dev -- vitest run"
+    "test:infra": "sst shell --stage dev -- vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@aws-sdk/client-sts": "^3.1161.0",

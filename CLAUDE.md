@@ -12,12 +12,16 @@ aws sso login --sso-session handson
 pnpm test:infra                              # 全件
 pnpm test:infra tests/infra/<章>.test.ts     # 章ごと
 
+# 型チェック (Stop hook でも自動実行される)
+pnpm typecheck
+
 # デプロイ / 削除 (使う日だけ deploy し、終わったら remove する)
 pnpm sst deploy --stage dev
 pnpm sst remove --stage dev
 ```
 
 - `sst shell` は state がないと失敗する。新しい環境では一度 `pnpm sst deploy --stage dev` してからテストを実行する。
+- `pnpm typecheck` は `.sst/platform` の型定義 (SST の初回実行で生成される) を参照する。新しい環境では先に SST コマンドを一度実行する。
 
 ## 前提
 
