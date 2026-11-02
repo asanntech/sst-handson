@@ -132,6 +132,40 @@ describe("4. RDS + Drizzle", () => {
     );
   });
 
+  test("Migrator Lambda の SG のアウトバウンドが、RDS の SG への TCP 5432 だけであること", async () => {
+    const ec2 = new EC2Client({});
+    const lambda = new LambdaClient({});
+    const instance = await describeTheDatabaseInstance();
+    const { VpcConfig } = await lambda.send(
+      new GetFunctionConfigurationCommand({
+        FunctionName: Resource.Migrator.name,
+      }),
+    );
+
+    const { SecurityGroups } = await ec2.send(
+      new DescribeSecurityGroupsCommand({
+        GroupIds: VpcConfig!.SecurityGroupIds,
+      }),
+    );
+
+    expect(SecurityGroups).toHaveLength(1);
+    expect(SecurityGroups![0].IpPermissionsEgress).toEqual([
+      expect.objectContaining({
+        IpProtocol: "tcp",
+        FromPort: 5432,
+        ToPort: 5432,
+        IpRanges: [],
+        Ipv6Ranges: [],
+        PrefixListIds: [],
+        UserIdGroupPairs: [
+          expect.objectContaining({
+            GroupId: instance.VpcSecurityGroups![0].VpcSecurityGroupId,
+          }),
+        ],
+      }),
+    ]);
+  });
+
   test("CloudFront 経由で POST /api/posts したあと GET /api/posts したとき、作成した投稿が一覧に含まれること", async () => {
     const body = `infra test ${crypto.randomUUID()}`;
 

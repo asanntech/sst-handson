@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { allowDatabaseAccess, database } from "./database";
+import {
+  allowDatabaseAccess,
+  database,
+  databaseSecurityGroup,
+} from "./database";
 import { vpc } from "./vpc";
 
 const migrationsDir = join($cli.paths.root, "packages/core/migrations");
@@ -11,12 +15,15 @@ const migratorSecurityGroup = new aws.ec2.SecurityGroup(
   "MigratorSecurityGroup",
   { vpcId: vpc.id, description: "Migrator Lambda" },
 );
+// link の値は環境変数で渡されるので、RDS 以外へ出ていく必要はない
 const migratorEgress = new aws.vpc.SecurityGroupEgressRule(
-  "MigratorToAnywhere",
+  "MigratorToDatabase",
   {
     securityGroupId: migratorSecurityGroup.id,
-    ipProtocol: "-1",
-    cidrIpv4: "0.0.0.0/0",
+    referencedSecurityGroupId: databaseSecurityGroup.id,
+    ipProtocol: "tcp",
+    fromPort: 5432,
+    toPort: 5432,
   },
 );
 const databaseFromMigrator = allowDatabaseAccess(
