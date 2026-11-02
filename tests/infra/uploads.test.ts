@@ -182,4 +182,29 @@ describe("5. 画像アップロード (署名付き URL)", () => {
       );
     }
   });
+
+  test("画像バケットのオブジェクト URL に直接 GET したとき 403 が返ること", async () => {
+    const s3 = new S3Client({});
+    const key = `thumbnails/test-${crypto.randomUUID()}.png`;
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: Resource.Media.name,
+        Key: key,
+        Body: pngBytes,
+        ContentType: "image/png",
+      }),
+    );
+
+    try {
+      const res = await fetch(
+        `https://${Resource.Media.name}.s3.ap-northeast-1.amazonaws.com/${key}`,
+      );
+
+      expect(res.status).toBe(403);
+    } finally {
+      await s3.send(
+        new DeleteObjectCommand({ Bucket: Resource.Media.name, Key: key }),
+      );
+    }
+  });
 });
