@@ -56,14 +56,19 @@ function hashMigrations() {
   return hash.digest("hex");
 }
 
-// deploy 中に Migrator を 1 回呼ぶ。Invocation は input が変わったときだけ作り直され、再実行される。
+// deploy 中に Migrator を 1 回呼ぶ。Invocation は input (migrations の内容と DB) が変わったときだけ作り直され、再実行される。
 // 関数がエラーを返すと Invocation の作成が失敗し、これに依存する ECS Service は更新されない。
 // SG のルールは関数とは別リソースなので、Migrator から RDS に届く状態になるまで明示的に待つ
 export const migration = new aws.lambda.Invocation(
   "Migration",
   {
     functionName: migrator.name,
-    input: JSON.stringify({ action: "migrate", migrations: hashMigrations() }),
+    input: $jsonStringify({
+      action: "migrate",
+      migrations: hashMigrations(),
+      // DB が作り直されたら (エンドポイントが変わったら)、空の DB に migrate をやり直す
+      database: database.host,
+    }),
   },
   { dependsOn: [migratorEgress, databaseFromMigrator] },
 );
