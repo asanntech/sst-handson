@@ -26,7 +26,12 @@ app.get("/api/posts", async (c) =>
 );
 
 app.post("/api/posts", async (c) => {
-  const { body } = await c.req.json<{ body?: unknown }>();
+  // JSON として読めない本文や null も、入力の誤りとして 400 にする
+  const input: unknown = await c.req.json().catch(() => null);
+  const body =
+    typeof input === "object" && input !== null && "body" in input
+      ? input.body
+      : undefined;
   if (typeof body !== "string" || body.trim() === "") {
     return c.json({ error: "body is required" }, 400);
   }
