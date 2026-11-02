@@ -3,6 +3,7 @@ import {
   DescribeRouteTablesCommand,
   EC2Client,
 } from "@aws-sdk/client-ec2";
+import { DescribeImagesCommand, ECRClient } from "@aws-sdk/client-ecr";
 import {
   DescribeTasksCommand,
   ECSClient,
@@ -53,5 +54,35 @@ describe("2. VPC + ECS/Fargate + ALB (+ECR)", () => {
     const gatewayIds = RouteTables![0].Routes!.map((r) => r.GatewayId ?? "");
     expect(gatewayIds.filter((id) => id.startsWith("igw-"))).toEqual([]);
     expect(NetworkInterfaces![0].Association?.PublicIp).toBeUndefined();
+  });
+
+  test("実行中のタスクのイメージダイジェストが ECR の SST 共有リポジトリ (sst-asset) にあること", async () => {
+    const ecs = new ECSClient({});
+    const ecr = new ECRClient({});
+    const { cluster, service } = Resource.ApiService;
+    const { taskArns } = await ecs.send(
+      new ListTasksCommand({
+        cluster,
+        serviceName: service,
+        desiredStatus: "RUNNING",
+      }),
+    );
+    const { tasks } = await ecs.send(
+      new DescribeTasksCommand({ cluster, tasks: taskArns }),
+    );
+    const container = tasks![0].containers![0];
+    // 例: <account>.dkr.ecr.ap-northeast-1.amazonaws.com/sst-asset:Api@sha256:...
+    const repositoryName = container.image!.split("/")[1].split(/[:@]/)[0];
+
+    const { imageDetails } = await ecr.send(
+      new DescribeImagesCommand({
+        repositoryName,
+        imageIds: [{ imageDigest: container.imageDigest }],
+      }),
+    );
+
+    expect(repositoryName).toBe("sst-asset");
+    expect(imageDetails).toHaveLength(1);
+    expect(imageDetails![0].imageDigest).toBe(container.imageDigest);
   });
 });
