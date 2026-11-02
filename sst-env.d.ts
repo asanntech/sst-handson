@@ -6,9 +6,17 @@
 
 declare module "sst" {
   export interface Resource {
+    "Api": {
+      "service": string
+      "type": "sst.aws.Service"
+      "url": string
+    }
     "Router": {
       "type": "sst.aws.Router"
       "url": string
+    }
+    "Vpc": {
+      "type": "sst.aws.Vpc"
     }
     "Web": {
       "type": "sst.aws.StaticSite"
