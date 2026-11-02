@@ -9,6 +9,15 @@ describe("3. CloudFront /api/* → ALB + オリジン保護", () => {
     expect(await res.json()).toEqual({ status: "ok" });
   });
 
+  test("クライアントが偽の X-Origin-Verify ヘッダーを付けて CloudFront 経由で GET /api/health したとき、上書きされて 200 が返ること", async () => {
+    const res = await fetch(`${Resource.Router.url}/api/health`, {
+      headers: { "X-Origin-Verify": "spoofed-by-client" },
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: "ok" });
+  });
+
   test("ALB の URL に直接 GET /api/health したとき、接続できないか 403 が返ること", async () => {
     // SG で塞がれていると接続がタイムアウトするので、5 秒で打ち切って「接続できない」とみなす
     const status = await fetch(`${Resource.Api.url}/api/health`, {
