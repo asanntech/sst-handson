@@ -16,5 +16,6 @@ export default $config({
   },
   async run() {
     await import("./infra/cdn");
+    await import("./infra/api");
   },
 });
