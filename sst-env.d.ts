@@ -11,6 +11,11 @@ declare module "sst" {
       "type": "sst.aws.Service"
       "url": string
     }
+    "ApiService": {
+      "cluster": string
+      "service": string
+      "type": "sst.sst.Linkable"
+    }
     "Router": {
       "type": "sst.aws.Router"
       "url": string
