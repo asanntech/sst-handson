@@ -1,3 +1,5 @@
+import { router } from "./cdn";
+import { originVerifyHeader, originVerifySecret } from "./origin-verify";
 import { vpc } from "./vpc";
 
 // sst.aws.Vpc をそのまま渡すと、タスクは public サブネットに置かれパブリック IP が付く。
@@ -13,6 +15,11 @@ const cluster = new sst.aws.Cluster("Cluster", {
   },
 });
 
+// CloudFront がオリジンへ接続するときの送信元 IP 範囲 (AWS が管理するプレフィックスリスト)
+const cloudfrontOriginFacing = aws.ec2.getManagedPrefixListOutput({
+  name: "com.amazonaws.global.cloudfront.origin-facing",
+});
+
 export const api = new sst.aws.Service("Api", {
   cluster,
   // Apple Silicon でエミュレーションなしにビルドでき、Fargate の料金も安い
@@ -22,10 +29,38 @@ export const api = new sst.aws.Service("Api", {
     dockerfile: "packages/api/Dockerfile",
   },
   loadBalancer: {
-    rules: [{ listen: "80/http", forward: "3000/http" }],
+    // 条件付きのルールだけにすると、Listener のデフォルトアクションは固定レスポンス 403 になる
+    rules: [
+      {
+        listen: "80/http",
+        forward: "3000/http",
+        conditions: {
+          header: {
+            name: originVerifyHeader,
+            values: [originVerifySecret.result],
+          },
+        },
+      },
+    ],
     health: { "3000/http": { path: "/api/health" } },
   },
+  transform: {
+    // SST のデフォルトは全開放 (0.0.0.0/0 の全プロトコル)。CloudFront からの HTTP だけを許可する
+    loadBalancerSecurityGroup: (args) => {
+      args.ingress = [
+        {
+          protocol: "tcp",
+          fromPort: 80,
+          toPort: 80,
+          prefixListIds: [cloudfrontOriginFacing.id],
+        },
+      ];
+    },
+  },
 });
+
+// CloudFront の /api/* を ALB に振り分ける ("/api" は /api と /api/ 以下にだけ一致する)
+router.route("/api", api.url);
 
 // テストから実行中のタスクを調べるため、クラスター名とサービス名を Resource.ApiService として公開する
 new sst.Linkable("ApiService", {
