@@ -24,6 +24,10 @@ declare module "sst" {
       "type": "sst.aws.Postgres"
       "username": string
     }
+    "Media": {
+      "name": string
+      "type": "sst.aws.Bucket"
+    }
     "Migrator": {
       "name": string
       "type": "sst.aws.Function"

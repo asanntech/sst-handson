@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p packages/api && tsc --noEmit -p packages/core && tsc --noEmit -p packages/functions"
   },
   "devDependencies": {
+    "@aws-sdk/client-cloudfront": "^3.1161.0",
     "@aws-sdk/client-ec2": "^3.1161.0",
     "@aws-sdk/client-ecr": "^3.1161.0",
     "@aws-sdk/client-ecs": "^3.1161.0",
