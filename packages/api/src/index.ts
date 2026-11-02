@@ -12,6 +12,8 @@ const pool = new pg.Pool({
   user: Resource.Database.username,
   password: Resource.Database.password,
   database: Resource.Database.database,
+  // RDS に届かないとき、ALB のタイムアウトまで待たずにエラーで返す
+  connectionTimeoutMillis: 5_000,
 });
 // RDS の再起動などでアイドル中の接続が切れると、Pool は error イベントを出す。
 // リスナーがないとプロセスが落ちるので、ログに残すだけにする (次のクエリで新しい接続が作られる)
