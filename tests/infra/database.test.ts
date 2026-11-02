@@ -193,7 +193,7 @@ describe("4. RDS + Drizzle", () => {
     { case: "body がない", requestBody: JSON.stringify({}) },
     { case: "JSON でない", requestBody: "not json" },
     { case: "null", requestBody: "null" },
-  ])("POST /api/posts で本文が「$case」のとき 400 が返ること", async ({ requestBody }) => {
+  ])("POST /api/posts で本文が「$case」のとき 400 と { error } の JSON が返ること", async ({ requestBody }) => {
     const res = await fetch(`${Resource.Router.url}/api/posts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -201,5 +201,6 @@ describe("4. RDS + Drizzle", () => {
     });
 
     expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: expect.any(String) });
   });
 });

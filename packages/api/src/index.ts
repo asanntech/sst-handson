@@ -6,6 +6,7 @@ import { posts } from "@sst-handson/core/schema";
 import { desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import pg from "pg";
 import { Resource } from "sst";
 import { z } from "zod";
@@ -25,6 +26,16 @@ pool.on("error", (err) => console.error("idle database client error", err));
 const db = drizzle(pool);
 
 const app = new Hono();
+
+// エラーはすべて { error } の JSON で返す。壊れた JSON の本文は zValidator の hook より前に
+// HTTPException (400) になるので、ここで形式をそろえる
+app.onError((err, c) => {
+  if (err instanceof HTTPException) {
+    return c.json({ error: err.message }, err.status);
+  }
+  console.error(err);
+  return c.json({ error: "internal server error" }, 500);
+});
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 

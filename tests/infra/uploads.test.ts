@@ -150,7 +150,7 @@ describe("5. 画像アップロード (署名付き URL)", () => {
     },
     { case: "JSON でない", requestBody: "not json" },
     { case: "null", requestBody: "null" },
-  ])("POST /api/uploads で本文が「$case」のとき 400 が返ること", async ({ requestBody }) => {
+  ])("POST /api/uploads で本文が「$case」のとき 400 と { error } の JSON が返ること", async ({ requestBody }) => {
     const res = await fetch(`${Resource.Router.url}/api/uploads`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -158,6 +158,7 @@ describe("5. 画像アップロード (署名付き URL)", () => {
     });
 
     expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: expect.any(String) });
   });
 
   test("uploads/ のオブジェクトを CloudFront の /media/uploads/... で GET したとき、画像が返らないこと", async () => {
