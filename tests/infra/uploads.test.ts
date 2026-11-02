@@ -154,4 +154,32 @@ describe("5. 画像アップロード (署名付き URL)", () => {
 
     expect(res.status).toBe(400);
   });
+
+  test("uploads/ のオブジェクトを CloudFront の /media/uploads/... で GET したとき、画像が返らないこと", async () => {
+    const s3 = new S3Client({});
+    const name = `test-${crypto.randomUUID()}.png`;
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: Resource.Media.name,
+        Key: `uploads/${name}`,
+        Body: pngBytes,
+        ContentType: "image/png",
+      }),
+    );
+
+    try {
+      const res = await fetch(`${Resource.Router.url}/media/uploads/${name}`);
+
+      // 未知のパスは画面 (StaticSite) の HTML にフォールバックするので、ステータスではなく中身で判定する
+      expect(res.headers.get("content-type")).not.toBe("image/png");
+      expect(new Uint8Array(await res.arrayBuffer())).not.toEqual(pngBytes);
+    } finally {
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: Resource.Media.name,
+          Key: `uploads/${name}`,
+        }),
+      );
+    }
+  });
 });
