@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test:infra": "sst shell --stage dev -- vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/api"
   },
   "devDependencies": {
     "@aws-sdk/client-ec2": "^3.1161.0",

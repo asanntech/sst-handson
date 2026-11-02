@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    // コンテナでは Node の型除去で .ts をそのまま実行するため、消せない構文 (enum など) を禁止する
+    "erasableSyntaxOnly": true
+  },
+  "include": ["src/**/*.ts"]
+}
