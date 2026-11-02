@@ -8,4 +8,11 @@ export const media = new sst.aws.Bucket("Media", {
     allowMethods: ["PUT"],
     allowHeaders: ["content-type"],
   },
+  // Router (CloudFront) からの読み取りを許可する
+  access: "cloudfront",
+});
+
+// Lambda が生成したサムネイルだけを配信する。/media/thumbnails/a.png → thumbnails/a.png
+router.routeBucket("/media/thumbnails", media, {
+  rewrite: { regex: "^/media/(.*)$", to: "/$1" },
 });

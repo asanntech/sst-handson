@@ -1,4 +1,9 @@
-import { HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { Resource } from "sst";
 import { describe, expect, test } from "vitest";
 
@@ -62,5 +67,33 @@ describe("5. 画像アップロード (署名付き URL)", () => {
       routerOrigin,
     );
     expect(fromOther.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  test("thumbnails/ に置いたオブジェクトを CloudFront の /media/thumbnails/... で GET したとき 200 で中身が返ること", async () => {
+    const s3 = new S3Client({});
+    const name = `test-${crypto.randomUUID()}.png`;
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: Resource.Media.name,
+        Key: `thumbnails/${name}`,
+        Body: pngBytes,
+        ContentType: "image/png",
+      }),
+    );
+
+    try {
+      const res = await fetch(`${Resource.Router.url}/media/thumbnails/${name}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/png");
+      expect(new Uint8Array(await res.arrayBuffer())).toEqual(pngBytes);
+    } finally {
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: Resource.Media.name,
+          Key: `thumbnails/${name}`,
+        }),
+      );
+    }
   });
 });
