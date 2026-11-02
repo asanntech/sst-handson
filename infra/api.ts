@@ -1,4 +1,5 @@
 import { router } from "./cdn";
+import { originVerifyHeader, originVerifySecret } from "./origin-verify";
 import { vpc } from "./vpc";
 
 // sst.aws.Vpc をそのまま渡すと、タスクは public サブネットに置かれパブリック IP が付く。
@@ -23,7 +24,19 @@ export const api = new sst.aws.Service("Api", {
     dockerfile: "packages/api/Dockerfile",
   },
   loadBalancer: {
-    rules: [{ listen: "80/http", forward: "3000/http" }],
+    // 条件付きのルールだけにすると、Listener のデフォルトアクションは固定レスポンス 403 になる
+    rules: [
+      {
+        listen: "80/http",
+        forward: "3000/http",
+        conditions: {
+          header: {
+            name: originVerifyHeader,
+            values: [originVerifySecret.result],
+          },
+        },
+      },
+    ],
     health: { "3000/http": { path: "/api/health" } },
   },
 });

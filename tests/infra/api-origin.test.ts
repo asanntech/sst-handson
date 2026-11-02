@@ -8,4 +8,16 @@ describe("3. CloudFront /api/* → ALB + オリジン保護", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: "ok" });
   });
+
+  test("ALB の URL に直接 GET /api/health したとき、接続できないか 403 が返ること", async () => {
+    // SG で塞がれていると接続がタイムアウトするので、5 秒で打ち切って「接続できない」とみなす
+    const status = await fetch(`${Resource.Api.url}/api/health`, {
+      signal: AbortSignal.timeout(5_000),
+    }).then(
+      (res) => res.status,
+      () => "接続できない",
+    );
+
+    expect([403, "接続できない"]).toContain(status);
+  });
 });
