@@ -115,4 +115,21 @@ describe("5. 画像アップロード (署名付き URL)", () => {
       s3.send(new HeadObjectCommand({ Bucket: Resource.Media.name, Key: key })),
     ).rejects.toMatchObject({ name: "NotFound" });
   });
+
+  test("署名時と異なる Content-Type で署名付き URL に PUT したとき 403 が返ること", async () => {
+    const issued = await fetch(`${Resource.Router.url}/api/uploads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentType: "image/png" }),
+    });
+    const { url } = (await issued.json()) as { url: string };
+
+    const put = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "text/html" },
+      body: "<script>alert(1)</script>",
+    });
+
+    expect(put.status).toBe(403);
+  });
 });

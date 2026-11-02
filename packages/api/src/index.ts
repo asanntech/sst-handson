@@ -57,7 +57,8 @@ app.post("/api/uploads", async (c) => {
       Key: key,
       ContentType: contentType,
     }),
-    { expiresIn: 300 },
+    // 既定では host しか署名されないので、Content-Type を署名に含めて違う種類のファイルを置かせない
+    { expiresIn: 300, signableHeaders: new Set(["content-type"]) },
   );
   return c.json({ url, key }, 201);
 });
