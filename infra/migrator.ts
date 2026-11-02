@@ -9,14 +9,13 @@ const migrationsDir = join($cli.paths.root, "packages/core/migrations");
 // Migrator 専用の SG。RDS に接続するためのアウトバウンドだけを持つ
 const migratorSecurityGroup = new aws.ec2.SecurityGroup(
   "MigratorSecurityGroup",
-  {
-    vpcId: vpc.id,
-    description: "Migrator Lambda",
-    egress: [
-      { protocol: "-1", fromPort: 0, toPort: 0, cidrBlocks: ["0.0.0.0/0"] },
-    ],
-  },
+  { vpcId: vpc.id, description: "Migrator Lambda" },
 );
+new aws.vpc.SecurityGroupEgressRule("MigratorToAnywhere", {
+  securityGroupId: migratorSecurityGroup.id,
+  ipProtocol: "-1",
+  cidrIpv4: "0.0.0.0/0",
+});
 allowDatabaseAccess("DatabaseFromMigrator", migratorSecurityGroup.id);
 
 // Drizzle の migration を RDS に適用する Lambda。RDS に届くよう VPC 内に置く

@@ -1,6 +1,8 @@
 import { vpc } from "./vpc";
 
-// RDS 専用の SG。インバウンドは、RDS に接続するリソースの側で allowDatabaseAccess を呼んで足す
+// RDS 専用の SG。インバウンドは、RDS に接続するリソースの側で allowDatabaseAccess を呼んで足す。
+// 自分で作る SG のルールは、インラインの ingress / egress を使わず、別リソースで 1 本ずつ書く
+// (インラインと別リソースを同じ SG に混ぜると、ルールが上書きされたり毎回差分が出たりする)
 export const databaseSecurityGroup = new aws.ec2.SecurityGroup(
   "DatabaseSecurityGroup",
   { vpcId: vpc.id, description: "Postgres on RDS" },

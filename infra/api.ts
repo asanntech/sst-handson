@@ -8,10 +8,12 @@ import { vpc } from "./vpc";
 const apiTaskSecurityGroup = new aws.ec2.SecurityGroup("ApiTaskSecurityGroup", {
   vpcId: vpc.id,
   description: "API tasks on Fargate",
-  // イメージの取得 (NAT 経由) と RDS への接続に使う
-  egress: [
-    { protocol: "-1", fromPort: 0, toPort: 0, cidrBlocks: ["0.0.0.0/0"] },
-  ],
+});
+// イメージの取得 (NAT 経由) と RDS への接続に使う
+new aws.vpc.SecurityGroupEgressRule("ApiTaskToAnywhere", {
+  securityGroupId: apiTaskSecurityGroup.id,
+  ipProtocol: "-1",
+  cidrIpv4: "0.0.0.0/0",
 });
 allowDatabaseAccess("DatabaseFromApiTask", apiTaskSecurityGroup.id);
 
@@ -64,7 +66,8 @@ export const api = new sst.aws.Service("Api", {
     service: (_args, opts) => {
       opts.dependsOn = [migration];
     },
-    // SST のデフォルトは全開放 (0.0.0.0/0 の全プロトコル)。CloudFront からの HTTP だけを許可する
+    // SST のデフォルトは全開放 (0.0.0.0/0 の全プロトコル)。CloudFront からの HTTP だけを許可する。
+    // この SG は SST が Service の中で作るので、ほかの SG と違い transform でインラインのルールを書き換える
     loadBalancerSecurityGroup: (args) => {
       args.ingress = [
         {
