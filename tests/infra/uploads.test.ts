@@ -96,4 +96,23 @@ describe("5. 画像アップロード (署名付き URL)", () => {
       );
     }
   });
+
+  test("署名なしでバケットの uploads/ に PUT したとき 403 が返り、オブジェクトができないこと", async () => {
+    const s3 = new S3Client({});
+    const key = `uploads/test-${crypto.randomUUID()}.png`;
+
+    const put = await fetch(
+      `https://${Resource.Media.name}.s3.ap-northeast-1.amazonaws.com/${key}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "image/png" },
+        body: pngBytes,
+      },
+    );
+
+    expect(put.status).toBe(403);
+    await expect(
+      s3.send(new HeadObjectCommand({ Bucket: Resource.Media.name, Key: key })),
+    ).rejects.toMatchObject({ name: "NotFound" });
+  });
 });
