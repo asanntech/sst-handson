@@ -16,6 +16,14 @@ declare module "sst" {
       "service": string
       "type": "sst.sst.Linkable"
     }
+    "Database": {
+      "database": string
+      "host": string
+      "password": string
+      "port": number
+      "type": "sst.aws.Postgres"
+      "username": string
+    }
     "Router": {
       "type": "sst.aws.Router"
       "url": string
