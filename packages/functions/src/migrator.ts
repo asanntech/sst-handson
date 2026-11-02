@@ -16,6 +16,8 @@ export async function handler(event: { action: "migrate" | "status" }) {
     user: Resource.Database.username,
     password: Resource.Database.password,
     database: Resource.Database.database,
+    // RDS に届かないとき、Lambda のタイムアウト (1 分) まで待たずに原因の分かるエラーで失敗させる
+    connectionTimeoutMillis: 10_000,
   });
   await client.connect();
   try {

@@ -11,12 +11,18 @@ const migratorSecurityGroup = new aws.ec2.SecurityGroup(
   "MigratorSecurityGroup",
   { vpcId: vpc.id, description: "Migrator Lambda" },
 );
-new aws.vpc.SecurityGroupEgressRule("MigratorToAnywhere", {
-  securityGroupId: migratorSecurityGroup.id,
-  ipProtocol: "-1",
-  cidrIpv4: "0.0.0.0/0",
-});
-allowDatabaseAccess("DatabaseFromMigrator", migratorSecurityGroup.id);
+const migratorEgress = new aws.vpc.SecurityGroupEgressRule(
+  "MigratorToAnywhere",
+  {
+    securityGroupId: migratorSecurityGroup.id,
+    ipProtocol: "-1",
+    cidrIpv4: "0.0.0.0/0",
+  },
+);
+const databaseFromMigrator = allowDatabaseAccess(
+  "DatabaseFromMigrator",
+  migratorSecurityGroup.id,
+);
 
 // Drizzle の migration を RDS に適用する Lambda。RDS に届くよう VPC 内に置く
 export const migrator = new sst.aws.Function("Migrator", {
@@ -44,8 +50,13 @@ function hashMigrations() {
 }
 
 // deploy 中に Migrator を 1 回呼ぶ。Invocation は input が変わったときだけ作り直され、再実行される。
-// 関数がエラーを返すと Invocation の作成が失敗し、これに依存する ECS Service は更新されない
-export const migration = new aws.lambda.Invocation("Migration", {
-  functionName: migrator.name,
-  input: JSON.stringify({ action: "migrate", migrations: hashMigrations() }),
-});
+// 関数がエラーを返すと Invocation の作成が失敗し、これに依存する ECS Service は更新されない。
+// SG のルールは関数とは別リソースなので、Migrator から RDS に届く状態になるまで明示的に待つ
+export const migration = new aws.lambda.Invocation(
+  "Migration",
+  {
+    functionName: migrator.name,
+    input: JSON.stringify({ action: "migrate", migrations: hashMigrations() }),
+  },
+  { dependsOn: [migratorEgress, databaseFromMigrator] },
+);
