@@ -26,7 +26,10 @@ app.get("/api/posts", async (c) =>
 );
 
 app.post("/api/posts", async (c) => {
-  const { body } = await c.req.json<{ body: string }>();
+  const { body } = await c.req.json<{ body?: unknown }>();
+  if (typeof body !== "string" || body.trim() === "") {
+    return c.json({ error: "body is required" }, 400);
+  }
   const [post] = await db.insert(posts).values({ body }).returning();
   return c.json(post, 201);
 });

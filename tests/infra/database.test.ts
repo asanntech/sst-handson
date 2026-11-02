@@ -152,4 +152,18 @@ describe("4. RDS + Drizzle", () => {
     expect(listed.status).toBe(200);
     expect(await listed.json()).toContainEqual(post);
   });
+
+  test.each([
+    { case: "空文字", payload: { body: "" } },
+    { case: "空白だけ", payload: { body: "   " } },
+    { case: "body がない", payload: {} },
+  ])("POST /api/posts で本文が「$case」のとき 400 が返ること", async ({ payload }) => {
+    const res = await fetch(`${Resource.Router.url}/api/posts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    expect(res.status).toBe(400);
+  });
 });
