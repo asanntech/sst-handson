@@ -1,5 +1,6 @@
 import { router } from "./cdn";
-import { allowDatabaseAccess } from "./database";
+import { allowDatabaseAccess, database } from "./database";
+import { migration } from "./migrator";
 import { originVerifyHeader, originVerifySecret } from "./origin-verify";
 import { vpc } from "./vpc";
 
@@ -35,6 +36,7 @@ const cloudfrontOriginFacing = aws.ec2.getManagedPrefixListOutput({
 
 export const api = new sst.aws.Service("Api", {
   cluster,
+  link: [database],
   // Apple Silicon でエミュレーションなしにビルドでき、Fargate の料金も安い
   architecture: "arm64",
   image: {
@@ -58,6 +60,10 @@ export const api = new sst.aws.Service("Api", {
     health: { "3000/http": { path: "/api/health" } },
   },
   transform: {
+    // migration が成功してから Service を更新する (新しいタスクが古いスキーマで動かないように)
+    service: (_args, opts) => {
+      opts.dependsOn = [migration];
+    },
     // SST のデフォルトは全開放 (0.0.0.0/0 の全プロトコル)。CloudFront からの HTTP だけを許可する
     loadBalancerSecurityGroup: (args) => {
       args.ingress = [

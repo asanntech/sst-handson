@@ -50,9 +50,25 @@ importers:
       '@hono/node-server':
         specifier: ^2.1.5
         version: 2.1.5(hono@4.13.16)
+      '@sst-handson/core':
+        specifier: workspace:*
+        version: link:../core
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)
       hono:
         specifier: ^4.13.16
         version: 4.13.16
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
+      sst:
+        specifier: ^4.17.2
+        version: 4.17.2
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
 
   packages/core:
     dependencies:
@@ -60,9 +76,15 @@ importers:
         specifier: ^0.45.4
         version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)
     devDependencies:
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
 
   packages/functions:
     dependencies:

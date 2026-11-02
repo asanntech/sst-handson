@@ -1,5 +1,10 @@
+import { createHash } from "node:crypto";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { allowDatabaseAccess, database } from "./database";
 import { vpc } from "./vpc";
+
+const migrationsDir = join($cli.paths.root, "packages/core/migrations");
 
 // Migrator 専用の SG。RDS に接続するためのアウトバウンドだけを持つ
 const migratorSecurityGroup = new aws.ec2.SecurityGroup(
@@ -24,4 +29,24 @@ export const migrator = new sst.aws.Function("Migrator", {
   link: [database],
   timeout: "1 minute",
   copyFiles: [{ from: "packages/core/migrations", to: "migrations" }],
+});
+
+// migrations (SQL と journal) の内容のハッシュ。migration を追加したときだけ値が変わる
+function hashMigrations() {
+  const hash = createHash("sha256");
+  const files = [
+    ...readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")),
+    "meta/_journal.json",
+  ].sort();
+  for (const file of files) {
+    hash.update(file).update(readFileSync(join(migrationsDir, file)));
+  }
+  return hash.digest("hex");
+}
+
+// deploy 中に Migrator を 1 回呼ぶ。Invocation は input が変わったときだけ作り直され、再実行される。
+// 関数がエラーを返すと Invocation の作成が失敗し、これに依存する ECS Service は更新されない
+export const migration = new aws.lambda.Invocation("Migration", {
+  functionName: migrator.name,
+  input: JSON.stringify({ action: "migrate", migrations: hashMigrations() }),
 });

@@ -131,4 +131,25 @@ describe("4. RDS + Drizzle", () => {
       2,
     );
   });
+
+  test("CloudFront 経由で POST /api/posts したあと GET /api/posts したとき、作成した投稿が一覧に含まれること", async () => {
+    const body = `infra test ${crypto.randomUUID()}`;
+
+    const created = await fetch(`${Resource.Router.url}/api/posts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    });
+    const listed = await fetch(`${Resource.Router.url}/api/posts`);
+
+    expect(created.status).toBe(201);
+    const post = await created.json();
+    expect(post).toEqual({
+      id: expect.any(Number),
+      body,
+      createdAt: expect.any(String),
+    });
+    expect(listed.status).toBe(200);
+    expect(await listed.json()).toContainEqual(post);
+  });
 });
