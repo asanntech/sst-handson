@@ -30,4 +30,37 @@ describe("5. 画像アップロード (署名付き URL)", () => {
     );
     expect(head.ContentType).toBe("image/png");
   });
+
+  test("署名付き URL へ PUT の CORS プリフライトを送ったとき、CloudFront の URL のオリジンは許可され、ほかのオリジンは許可されないこと", async () => {
+    const issued = await fetch(`${Resource.Router.url}/api/uploads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentType: "image/png" }),
+    });
+    const { url } = (await issued.json()) as { url: string };
+    const routerOrigin = new URL(Resource.Router.url).origin;
+
+    const fromRouter = await fetch(url, {
+      method: "OPTIONS",
+      headers: {
+        Origin: routerOrigin,
+        "Access-Control-Request-Method": "PUT",
+        "Access-Control-Request-Headers": "content-type",
+      },
+    });
+    const fromOther = await fetch(url, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://evil.example.com",
+        "Access-Control-Request-Method": "PUT",
+        "Access-Control-Request-Headers": "content-type",
+      },
+    });
+
+    expect(fromRouter.status).toBe(200);
+    expect(fromRouter.headers.get("access-control-allow-origin")).toBe(
+      routerOrigin,
+    );
+    expect(fromOther.headers.get("access-control-allow-origin")).toBeNull();
+  });
 });
