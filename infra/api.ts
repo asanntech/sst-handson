@@ -1,3 +1,4 @@
+import { router } from "./cdn";
 import { vpc } from "./vpc";
 
 // sst.aws.Vpc をそのまま渡すと、タスクは public サブネットに置かれパブリック IP が付く。
@@ -26,6 +27,9 @@ export const api = new sst.aws.Service("Api", {
     health: { "3000/http": { path: "/api/health" } },
   },
 });
+
+// CloudFront の /api/* を ALB に振り分ける ("/api" は /api と /api/ 以下にだけ一致する)
+router.route("/api", api.url);
 
 // テストから実行中のタスクを調べるため、クラスター名とサービス名を Resource.ApiService として公開する
 new sst.Linkable("ApiService", {
