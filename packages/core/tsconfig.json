@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    // api のコンテナが Node の型除去でそのまま読み込むため、消せない構文 (enum など) を禁止する
+    "erasableSyntaxOnly": true
+  },
+  "include": ["src/**/*.ts", "drizzle.config.ts"]
+}

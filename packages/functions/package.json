@@ -1,0 +1,15 @@
+{
+  "name": "@sst-handson/functions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
+    "sst": "^4.17.2"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.164",
+    "@types/pg": "^8.23.1"
+  }
+}

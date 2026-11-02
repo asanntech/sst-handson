@@ -8,6 +8,13 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
-    "hono": "^4.13.16"
+    "@sst-handson/core": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.16",
+    "pg": "^8.23.1",
+    "sst": "^4.17.2"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }
