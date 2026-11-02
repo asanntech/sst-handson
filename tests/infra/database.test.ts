@@ -1,4 +1,10 @@
-import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
+import { DescribeSecurityGroupsCommand, EC2Client } from "@aws-sdk/client-ec2";
+import { DescribeServicesCommand, ECSClient } from "@aws-sdk/client-ecs";
+import {
+  GetFunctionConfigurationCommand,
+  InvokeCommand,
+  LambdaClient,
+} from "@aws-sdk/client-lambda";
 import { DescribeDBInstancesCommand, RDSClient } from "@aws-sdk/client-rds";
 import { readdirSync } from "node:fs";
 import { Resource } from "sst";
@@ -68,4 +74,61 @@ describe("4. RDS + Drizzle", () => {
     expect(migrationFiles.length).toBeGreaterThan(0);
     expect(payload).toEqual({ applied: migrationFiles.length, pending: 0 });
   }, 60_000);
+
+  test("RDS の SG のインバウンドが、ECS タスクの SG と Migrator Lambda の SG からの TCP 5432 だけであること", async () => {
+    const ec2 = new EC2Client({});
+    const ecs = new ECSClient({});
+    const lambda = new LambdaClient({});
+    const instance = await describeTheDatabaseInstance();
+    const { services } = await ecs.send(
+      new DescribeServicesCommand({
+        cluster: Resource.ApiService.cluster,
+        services: [Resource.ApiService.service],
+      }),
+    );
+    const { VpcConfig } = await lambda.send(
+      new GetFunctionConfigurationCommand({
+        FunctionName: Resource.Migrator.name,
+      }),
+    );
+    const apiTaskSecurityGroups =
+      services![0].networkConfiguration!.awsvpcConfiguration!.securityGroups!;
+    const migratorSecurityGroups = VpcConfig!.SecurityGroupIds!;
+
+    const databaseSecurityGroupIds = instance.VpcSecurityGroups!.map(
+      (sg) => sg.VpcSecurityGroupId!,
+    );
+    const { SecurityGroups } = await ec2.send(
+      new DescribeSecurityGroupsCommand({ GroupIds: databaseSecurityGroupIds }),
+    );
+
+    // ECS と Migrator がそれぞれ専用の SG を 1 つずつ持ち、RDS の SG とも別であること
+    expect(apiTaskSecurityGroups).toHaveLength(1);
+    expect(migratorSecurityGroups).toHaveLength(1);
+    expect(SecurityGroups).toHaveLength(1);
+    expect(
+      new Set([
+        apiTaskSecurityGroups[0],
+        migratorSecurityGroups[0],
+        SecurityGroups![0].GroupId,
+      ]).size,
+    ).toBe(3);
+    expect(SecurityGroups![0].IpPermissions).toEqual([
+      expect.objectContaining({
+        IpProtocol: "tcp",
+        FromPort: 5432,
+        ToPort: 5432,
+        IpRanges: [],
+        Ipv6Ranges: [],
+        PrefixListIds: [],
+        UserIdGroupPairs: expect.arrayContaining([
+          expect.objectContaining({ GroupId: apiTaskSecurityGroups[0] }),
+          expect.objectContaining({ GroupId: migratorSecurityGroups[0] }),
+        ]),
+      }),
+    ]);
+    expect(SecurityGroups![0].IpPermissions![0].UserIdGroupPairs).toHaveLength(
+      2,
+    );
+  });
 });
