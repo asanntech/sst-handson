@@ -1,5 +1,6 @@
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { DescribeDBInstancesCommand, RDSClient } from "@aws-sdk/client-rds";
+import { readdirSync } from "node:fs";
 import { Resource } from "sst";
 import { describe, expect, test } from "vitest";
 
@@ -47,5 +48,24 @@ describe("4. RDS + Drizzle", () => {
     expect(first.payload).toEqual({ applied: expect.any(Number) });
     expect(second.functionError, JSON.stringify(second.payload)).toBeUndefined();
     expect(second.payload).toEqual(first.payload);
+  }, 60_000);
+
+  test("Migrator Lambda を action: status で Invoke したとき、適用済みの件数がリポジトリの migration ファイルの数と一致し、未適用が 0 件であること", async () => {
+    const lambda = new LambdaClient({});
+    const migrationFiles = readdirSync("packages/core/migrations").filter((f) =>
+      f.endsWith(".sql"),
+    );
+
+    const res = await lambda.send(
+      new InvokeCommand({
+        FunctionName: Resource.Migrator.name,
+        Payload: JSON.stringify({ action: "status" }),
+      }),
+    );
+    const payload = JSON.parse(new TextDecoder().decode(res.Payload));
+
+    expect(res.FunctionError, JSON.stringify(payload)).toBeUndefined();
+    expect(migrationFiles.length).toBeGreaterThan(0);
+    expect(payload).toEqual({ applied: migrationFiles.length, pending: 0 });
   }, 60_000);
 });
