@@ -6,15 +6,17 @@ import { Hono } from "hono";
 import pg from "pg";
 import { Resource } from "sst";
 
-const db = drizzle(
-  new pg.Pool({
-    host: Resource.Database.host,
-    port: Resource.Database.port,
-    user: Resource.Database.username,
-    password: Resource.Database.password,
-    database: Resource.Database.database,
-  }),
-);
+const pool = new pg.Pool({
+  host: Resource.Database.host,
+  port: Resource.Database.port,
+  user: Resource.Database.username,
+  password: Resource.Database.password,
+  database: Resource.Database.database,
+});
+// RDS の再起動などでアイドル中の接続が切れると、Pool は error イベントを出す。
+// リスナーがないとプロセスが落ちるので、ログに残すだけにする (次のクエリで新しい接続が作られる)
+pool.on("error", (err) => console.error("idle database client error", err));
+const db = drizzle(pool);
 
 const app = new Hono();
 
