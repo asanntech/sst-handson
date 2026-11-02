@@ -5,6 +5,7 @@ import {
 } from "@aws-sdk/client-ec2";
 import { DescribeImagesCommand, ECRClient } from "@aws-sdk/client-ecr";
 import {
+  DescribeServicesCommand,
   DescribeTasksCommand,
   ECSClient,
   ListTasksCommand,
@@ -84,5 +85,24 @@ describe("2. VPC + ECS/Fargate + ALB (+ECR)", () => {
     expect(repositoryName).toBe("sst-asset");
     expect(imageDetails).toHaveLength(1);
     expect(imageDetails![0].imageDigest).toBe(container.imageDigest);
+  });
+
+  test("ECS Service の desiredCount が 1 で、実行中のタスクが 1 つであること", async () => {
+    const ecs = new ECSClient({});
+    const { cluster, service } = Resource.ApiService;
+
+    const { services } = await ecs.send(
+      new DescribeServicesCommand({ cluster, services: [service] }),
+    );
+    const { taskArns } = await ecs.send(
+      new ListTasksCommand({
+        cluster,
+        serviceName: service,
+        desiredStatus: "RUNNING",
+      }),
+    );
+
+    expect(services![0].desiredCount).toBe(1);
+    expect(taskArns).toHaveLength(1);
   });
 });
