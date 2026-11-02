@@ -15,6 +15,11 @@ const cluster = new sst.aws.Cluster("Cluster", {
   },
 });
 
+// CloudFront がオリジンへ接続するときの送信元 IP 範囲 (AWS が管理するプレフィックスリスト)
+const cloudfrontOriginFacing = aws.ec2.getManagedPrefixListOutput({
+  name: "com.amazonaws.global.cloudfront.origin-facing",
+});
+
 export const api = new sst.aws.Service("Api", {
   cluster,
   // Apple Silicon でエミュレーションなしにビルドでき、Fargate の料金も安い
@@ -38,6 +43,19 @@ export const api = new sst.aws.Service("Api", {
       },
     ],
     health: { "3000/http": { path: "/api/health" } },
+  },
+  transform: {
+    // SST のデフォルトは全開放 (0.0.0.0/0 の全プロトコル)。CloudFront からの HTTP だけを許可する
+    loadBalancerSecurityGroup: (args) => {
+      args.ingress = [
+        {
+          protocol: "tcp",
+          fromPort: 80,
+          toPort: 80,
+          prefixListIds: [cloudfrontOriginFacing.id],
+        },
+      ];
+    },
   },
 });
 

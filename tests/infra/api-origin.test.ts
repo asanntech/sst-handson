@@ -1,4 +1,9 @@
 import {
+  DescribeManagedPrefixListsCommand,
+  DescribeSecurityGroupsCommand,
+  EC2Client,
+} from "@aws-sdk/client-ec2";
+import {
   DescribeListenersCommand,
   DescribeLoadBalancersCommand,
   DescribeRulesCommand,
@@ -6,6 +11,20 @@ import {
 } from "@aws-sdk/client-elastic-load-balancing-v2";
 import { Resource } from "sst";
 import { describe, expect, test } from "vitest";
+
+// Resource.Api.url (http://<DNS 名>) から API の ALB を特定する。DNS 名は大文字小文字を区別しない
+async function describeTheApiLoadBalancer() {
+  const elb = new ElasticLoadBalancingV2Client({});
+  const dnsName = new URL(Resource.Api.url).host.toLowerCase();
+  const { LoadBalancers } = await elb.send(
+    new DescribeLoadBalancersCommand({}),
+  );
+  const loadBalancer = LoadBalancers!.find(
+    (lb) => lb.DNSName!.toLowerCase() === dnsName,
+  );
+  expect(loadBalancer, `${dnsName} の ALB が存在すること`).toBeDefined();
+  return loadBalancer!;
+}
 
 describe("3. CloudFront /api/* → ALB + オリジン保護", () => {
   test("CloudFront の URL に GET /api/health したとき 200 と {status: ok} が返ること", async () => {
@@ -38,14 +57,7 @@ describe("3. CloudFront /api/* → ALB + オリジン保護", () => {
 
   test("ALB の Listener のデフォルトアクションが固定レスポンス 403 で、X-Origin-Verify ヘッダー (英数字 32 文字) が一致したときだけ forward すること", async () => {
     const elb = new ElasticLoadBalancingV2Client({});
-    // Resource.Api.url (http://<DNS 名>) から ALB を特定する。DNS 名は大文字小文字を区別しない
-    const dnsName = new URL(Resource.Api.url).host.toLowerCase();
-    const { LoadBalancers } = await elb.send(
-      new DescribeLoadBalancersCommand({}),
-    );
-    const loadBalancer = LoadBalancers!.find(
-      (lb) => lb.DNSName!.toLowerCase() === dnsName,
-    )!;
+    const loadBalancer = await describeTheApiLoadBalancer();
     const { Listeners } = await elb.send(
       new DescribeListenersCommand({
         LoadBalancerArn: loadBalancer.LoadBalancerArn,
@@ -77,6 +89,44 @@ describe("3. CloudFront /api/* → ALB + オリジン保護", () => {
     ]);
     expect(otherRules[0].Actions).toEqual([
       expect.objectContaining({ Type: "forward" }),
+    ]);
+  });
+
+  test("ALB の SG のインバウンドが、CloudFront origin-facing プレフィックスリストからの TCP 80 だけであること", async () => {
+    const ec2 = new EC2Client({});
+    const loadBalancer = await describeTheApiLoadBalancer();
+    const { PrefixLists } = await ec2.send(
+      new DescribeManagedPrefixListsCommand({
+        Filters: [
+          {
+            Name: "prefix-list-name",
+            Values: ["com.amazonaws.global.cloudfront.origin-facing"],
+          },
+        ],
+      }),
+    );
+
+    const { SecurityGroups } = await ec2.send(
+      new DescribeSecurityGroupsCommand({
+        GroupIds: loadBalancer.SecurityGroups,
+      }),
+    );
+
+    expect(SecurityGroups).toHaveLength(1);
+    expect(SecurityGroups![0].IpPermissions).toEqual([
+      expect.objectContaining({
+        IpProtocol: "tcp",
+        FromPort: 80,
+        ToPort: 80,
+        IpRanges: [],
+        Ipv6Ranges: [],
+        UserIdGroupPairs: [],
+        PrefixListIds: [
+          expect.objectContaining({
+            PrefixListId: PrefixLists![0].PrefixListId,
+          }),
+        ],
+      }),
     ]);
   });
 });
