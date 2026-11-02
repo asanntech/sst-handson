@@ -1,5 +1,10 @@
 import {
+  CloudFrontClient,
+  paginateListDistributions,
+} from "@aws-sdk/client-cloudfront";
+import {
   DeleteObjectCommand,
+  GetBucketPolicyCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -206,5 +211,39 @@ describe("5. 画像アップロード (署名付き URL)", () => {
         new DeleteObjectCommand({ Bucket: Resource.Media.name, Key: key }),
       );
     }
+  });
+
+  test("画像バケットのポリシーが CloudFront に許可する読み取りは、この Router のディストリビューションからの thumbnails/ だけであること", async () => {
+    // Resource.Router.url (https://<ドメイン>) から Router のディストリビューションを特定する
+    const domain = new URL(Resource.Router.url).host;
+    let distributionArn: string | undefined;
+    for await (const page of paginateListDistributions(
+      { client: new CloudFrontClient({}) },
+      {},
+    )) {
+      distributionArn ??= page.DistributionList?.Items?.find(
+        (d) => d.DomainName === domain,
+      )?.ARN;
+    }
+    expect(distributionArn, `${domain} のディストリビューションが存在すること`).toBeDefined();
+
+    const { Policy } = await new S3Client({}).send(
+      new GetBucketPolicyCommand({ Bucket: Resource.Media.name }),
+    );
+    const statements = (
+      JSON.parse(Policy!) as { Statement: { Principal?: unknown }[] }
+    ).Statement;
+    const cloudfrontStatements = statements.filter((s) =>
+      JSON.stringify(s.Principal).includes("cloudfront.amazonaws.com"),
+    );
+
+    expect(cloudfrontStatements).toEqual([
+      expect.objectContaining({
+        Effect: "Allow",
+        Action: "s3:GetObject",
+        Resource: `arn:aws:s3:::${Resource.Media.name}/thumbnails/*`,
+        Condition: { StringEquals: { "AWS:SourceArn": distributionArn } },
+      }),
+    ]);
   });
 });

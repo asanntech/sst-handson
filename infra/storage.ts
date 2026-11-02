@@ -8,8 +8,24 @@ export const media = new sst.aws.Bucket("Media", {
     allowMethods: ["PUT"],
     allowHeaders: ["content-type"],
   },
-  // Router (CloudFront) からの読み取りを許可する
-  access: "cloudfront",
+  // 読み取りを許可するのは、この Router のディストリビューションからの thumbnails/ だけ。
+  // access: "cloudfront" だとバケット全体が対象になり、ほかのディストリビューションも条件なしで許可される
+  policy: [
+    {
+      actions: ["s3:GetObject"],
+      principals: [
+        { type: "service", identifiers: ["cloudfront.amazonaws.com"] },
+      ],
+      paths: ["thumbnails/*"],
+      conditions: [
+        {
+          test: "StringEquals",
+          variable: "AWS:SourceArn",
+          values: [router.nodes.cdn.nodes.distribution.arn],
+        },
+      ],
+    },
+  ],
 });
 
 // Lambda が生成したサムネイルだけを配信する。/media/thumbnails/a.png → thumbnails/a.png
