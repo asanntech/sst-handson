@@ -1,3 +1,5 @@
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { serve } from "@hono/node-server";
 import { posts } from "@sst-handson/core/schema";
 import { desc } from "drizzle-orm";
@@ -41,6 +43,23 @@ app.post("/api/posts", async (c) => {
   }
   const [post] = await db.insert(posts).values({ body }).returning();
   return c.json(post, 201);
+});
+
+const s3 = new S3Client({});
+
+app.post("/api/uploads", async (c) => {
+  const { contentType } = await c.req.json();
+  const key = `uploads/${crypto.randomUUID()}`;
+  const url = await getSignedUrl(
+    s3,
+    new PutObjectCommand({
+      Bucket: Resource.Media.name,
+      Key: key,
+      ContentType: contentType,
+    }),
+    { expiresIn: 300 },
+  );
+  return c.json({ url, key }, 201);
 });
 
 serve({ fetch: app.fetch, port: 3000 });

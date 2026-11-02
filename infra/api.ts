@@ -2,6 +2,7 @@ import { router } from "./cdn";
 import { allowDatabaseAccess, database } from "./database";
 import { migration } from "./migrator";
 import { originVerifyHeader, originVerifySecret } from "./origin-verify";
+import { media } from "./storage";
 import { vpc } from "./vpc";
 
 // API タスク専用の SG。インバウンドは、ALB を作ったあとで ALB の SG からだけ許可する
@@ -38,7 +39,7 @@ const cloudfrontOriginFacing = aws.ec2.getManagedPrefixListOutput({
 
 export const api = new sst.aws.Service("Api", {
   cluster,
-  link: [database],
+  link: [database, media],
   // Apple Silicon でエミュレーションなしにビルドでき、Fargate の料金も安い
   architecture: "arm64",
   image: {
