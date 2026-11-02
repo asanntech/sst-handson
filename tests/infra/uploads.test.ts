@@ -132,4 +132,26 @@ describe("5. 画像アップロード (署名付き URL)", () => {
 
     expect(put.status).toBe(403);
   });
+
+  test.each([
+    { case: "contentType がない", requestBody: JSON.stringify({}) },
+    {
+      case: "画像以外 (text/html)",
+      requestBody: JSON.stringify({ contentType: "text/html" }),
+    },
+    {
+      case: "画像だが対象外 (image/svg+xml)",
+      requestBody: JSON.stringify({ contentType: "image/svg+xml" }),
+    },
+    { case: "JSON でない", requestBody: "not json" },
+    { case: "null", requestBody: "null" },
+  ])("POST /api/uploads で本文が「$case」のとき 400 が返ること", async ({ requestBody }) => {
+    const res = await fetch(`${Resource.Router.url}/api/uploads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: requestBody,
+    });
+
+    expect(res.status).toBe(400);
+  });
 });

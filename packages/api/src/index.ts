@@ -47,8 +47,24 @@ app.post("/api/posts", async (c) => {
 
 const s3 = new S3Client({});
 
+// SVG はスクリプトを埋め込めるので受け付けない
+const imageContentTypes = ["image/jpeg", "image/png", "image/webp"];
+
 app.post("/api/uploads", async (c) => {
-  const { contentType } = await c.req.json();
+  const input: unknown = await c.req.json().catch(() => null);
+  const contentType =
+    typeof input === "object" && input !== null && "contentType" in input
+      ? input.contentType
+      : undefined;
+  if (
+    typeof contentType !== "string" ||
+    !imageContentTypes.includes(contentType)
+  ) {
+    return c.json(
+      { error: `contentType must be one of ${imageContentTypes.join(", ")}` },
+      400,
+    );
+  }
   const key = `uploads/${crypto.randomUUID()}`;
   const url = await getSignedUrl(
     s3,
