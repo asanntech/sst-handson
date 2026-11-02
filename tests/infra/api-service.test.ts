@@ -3,7 +3,12 @@ import {
   DescribeRouteTablesCommand,
   EC2Client,
 } from "@aws-sdk/client-ec2";
-import { DescribeImagesCommand, ECRClient } from "@aws-sdk/client-ecr";
+import {
+  BatchGetImageCommand,
+  DescribeImagesCommand,
+  ECRClient,
+  GetDownloadUrlForLayerCommand,
+} from "@aws-sdk/client-ecr";
 import {
   DescribeServicesCommand,
   DescribeTasksCommand,
@@ -85,6 +90,43 @@ describe("2. VPC + ECS/Fargate + ALB (+ECR)", () => {
     expect(repositoryName).toBe("sst-asset");
     expect(imageDetails).toHaveLength(1);
     expect(imageDetails![0].imageDigest).toBe(container.imageDigest);
+  });
+
+  test("実行中のタスクのイメージが root ではないユーザー (node) で実行される設定であること", async () => {
+    const ecs = new ECSClient({});
+    const ecr = new ECRClient({});
+    const { cluster, service } = Resource.ApiService;
+    const { taskArns } = await ecs.send(
+      new ListTasksCommand({
+        cluster,
+        serviceName: service,
+        desiredStatus: "RUNNING",
+      }),
+    );
+    const { tasks } = await ecs.send(
+      new DescribeTasksCommand({ cluster, tasks: taskArns }),
+    );
+    const { imageDigest } = tasks![0].containers![0];
+
+    // イメージのマニフェストから設定 (config) の blob をたどり、Dockerfile の USER を読む
+    const { images } = await ecr.send(
+      new BatchGetImageCommand({
+        repositoryName: "sst-asset",
+        imageIds: [{ imageDigest }],
+      }),
+    );
+    const manifest = JSON.parse(images![0].imageManifest!);
+    const { downloadUrl } = await ecr.send(
+      new GetDownloadUrlForLayerCommand({
+        repositoryName: "sst-asset",
+        layerDigest: manifest.config.digest,
+      }),
+    );
+    const imageConfig = (await (await fetch(downloadUrl!)).json()) as {
+      config: { User?: string };
+    };
+
+    expect(imageConfig.config.User).toBe("node");
   });
 
   test("ECS Service の desiredCount が 1 で、実行中のタスクが 1 つであること", async () => {

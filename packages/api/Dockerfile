@@ -8,4 +8,5 @@ RUN pnpm install --filter @sst-handson/api --prod --frozen-lockfile
 COPY packages/api/src packages/api/src
 WORKDIR /app/packages/api
 EXPOSE 3000
+USER node
 CMD ["node", "src/index.ts"]
