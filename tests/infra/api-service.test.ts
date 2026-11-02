@@ -18,6 +18,28 @@ import {
 import { Resource } from "sst";
 import { describe, expect, test } from "vitest";
 
+// 実行中のタスクを 1 つ取得する。0 件 (起動前) や 2 件 (ローリング更新中) のときは、
+// DescribeTasks のエラーや古いタスクの検証にならないよう、件数の前提で先に失敗させる
+async function describeTheRunningTask() {
+  const ecs = new ECSClient({});
+  const { cluster, service } = Resource.ApiService;
+  const { taskArns } = await ecs.send(
+    new ListTasksCommand({
+      cluster,
+      serviceName: service,
+      desiredStatus: "RUNNING",
+    }),
+  );
+  expect(
+    taskArns,
+    "実行中のタスクが 1 つであること (deploy 後に aws ecs wait services-stable を待ったか)",
+  ).toHaveLength(1);
+  const { tasks } = await ecs.send(
+    new DescribeTasksCommand({ cluster, tasks: taskArns }),
+  );
+  return tasks![0];
+}
+
 describe("2. VPC + ECS/Fargate + ALB (+ECR)", () => {
   test("ALB の URL に GET /api/health したとき 200 と {status: ok} が返ること", async () => {
     const res = await fetch(`${Resource.Api.url}/api/health`);
@@ -27,20 +49,9 @@ describe("2. VPC + ECS/Fargate + ALB (+ECR)", () => {
   });
 
   test("実行中のタスクが private サブネット (IGW への経路なし) にあり、パブリック IP がないこと", async () => {
-    const ecs = new ECSClient({});
     const ec2 = new EC2Client({});
-    const { cluster, service } = Resource.ApiService;
-    const { taskArns } = await ecs.send(
-      new ListTasksCommand({
-        cluster,
-        serviceName: service,
-        desiredStatus: "RUNNING",
-      }),
-    );
-    const { tasks } = await ecs.send(
-      new DescribeTasksCommand({ cluster, tasks: taskArns }),
-    );
-    const eniDetails = tasks![0].attachments!.find(
+    const task = await describeTheRunningTask();
+    const eniDetails = task.attachments!.find(
       (a) => a.type === "ElasticNetworkInterface",
     )!.details!;
     const subnetId = eniDetails.find((d) => d.name === "subnetId")!.value!;
@@ -63,20 +74,9 @@ describe("2. VPC + ECS/Fargate + ALB (+ECR)", () => {
   });
 
   test("実行中のタスクのイメージダイジェストが ECR の SST 共有リポジトリ (sst-asset) にあること", async () => {
-    const ecs = new ECSClient({});
     const ecr = new ECRClient({});
-    const { cluster, service } = Resource.ApiService;
-    const { taskArns } = await ecs.send(
-      new ListTasksCommand({
-        cluster,
-        serviceName: service,
-        desiredStatus: "RUNNING",
-      }),
-    );
-    const { tasks } = await ecs.send(
-      new DescribeTasksCommand({ cluster, tasks: taskArns }),
-    );
-    const container = tasks![0].containers![0];
+    const task = await describeTheRunningTask();
+    const container = task.containers![0];
     // 例: <account>.dkr.ecr.ap-northeast-1.amazonaws.com/sst-asset:Api@sha256:...
     const repositoryName = container.image!.split("/")[1].split(/[:@]/)[0];
 
@@ -93,20 +93,9 @@ describe("2. VPC + ECS/Fargate + ALB (+ECR)", () => {
   });
 
   test("実行中のタスクのイメージが root ではないユーザー (node) で実行される設定であること", async () => {
-    const ecs = new ECSClient({});
     const ecr = new ECRClient({});
-    const { cluster, service } = Resource.ApiService;
-    const { taskArns } = await ecs.send(
-      new ListTasksCommand({
-        cluster,
-        serviceName: service,
-        desiredStatus: "RUNNING",
-      }),
-    );
-    const { tasks } = await ecs.send(
-      new DescribeTasksCommand({ cluster, tasks: taskArns }),
-    );
-    const { imageDigest } = tasks![0].containers![0];
+    const task = await describeTheRunningTask();
+    const { imageDigest } = task.containers![0];
 
     // イメージのマニフェストから設定 (config) の blob をたどり、Dockerfile の USER を読む
     const { images } = await ecr.send(
